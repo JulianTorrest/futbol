@@ -63,6 +63,14 @@ def get_leagues():
     """
     data = fetch_data("leagues")
     if data and data['response']:
+        # --- NUEVA LÍNEA DE DEPURACIÓN AQUÍ ---
+        # Mostrar las ligas clave para inspección
+        important_leagues = [l for l in data['response'] if 'Ligue 1' in l['league']['name'] or l['league']['id'] == 844]
+        if important_leagues:
+            st.sidebar.write(f"DEBUG: Ligas relevantes encontradas en API:")
+            for l in important_leagues:
+                st.sidebar.write(f"- Nombre: {l['league']['name']}, ID: {l['league']['id']}, Tipo: {l['league']['type']}")
+        # --------------------------------------
         return data['response']
     return []
 
@@ -149,6 +157,10 @@ selected_league_name = st.selectbox(
 )
 selected_league_id = league_options.get(selected_league_name)
 
+# --- LÍNEA DE DEPURACIÓN CRÍTICA PARA EL ID DE LA LIGA SELECCIONADO ---
+st.sidebar.write(f"DEBUG: ID de liga seleccionado DESPUÉS DE SELECTBOX: `{selected_league_id}`")
+# ---------------------------------------------------------------------
+
 # 2. Selector de Temporada
 # La API suele usar el año de inicio de la temporada (ej. 2023 para 2023/2024)
 # Asegúrate de seleccionar una temporada que ya haya terminado para ver partidos "FT".
@@ -177,13 +189,13 @@ with col2:
 
 if st.button("Buscar Partidos", key="search_fixtures"):
     if selected_league_id is not None and selected_season != "Selecciona una temporada":
-        # --- LÍNEA DE DEPURACIÓN CRÍTICA PARA EL ID DE LA LIGA SELECCIONADO ---
-        st.sidebar.write(f"DEBUG: ID de liga seleccionado: `{selected_league_id}`")
-        # ---------------------------------------------------------------------
-
+        # La línea de depuración de ID de liga seleccionado ya está arriba, fuera de este if.
+        
         with st.spinner(f"Buscando partidos para {selected_league_name} ({selected_season})..."):
-            # Llama a la función get_fixtures con el estado "FT" para partidos finalizados
-            fixtures = get_fixtures(selected_league_id, int(selected_season), "FT", date_from, date_to)
+            # --- MODIFICACIÓN IMPORTANTE AQUÍ PARA LA PRUEBA ---
+            st.sidebar.write(f"DEBUG: FORZANDO league_id a 61 para la prueba de Ligue 1.")
+            fixtures = get_fixtures(61, int(selected_season), "FT", date_from, date_to) # <-- selected_league_id ha sido reemplazado por 61
+            # ----------------------------------------------------
 
             if fixtures:
                 st.subheader(f"Partidos Finalizados de {selected_league_name} - Temporada {selected_season}")
