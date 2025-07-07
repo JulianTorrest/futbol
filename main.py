@@ -8,7 +8,8 @@ API_KEY = "dc98474508c65500e4a8776d96a76a5e"
 BASE_URL = "https://v3.football.api-sports.io/"
 
 # --- CONFIGURACIÓN CRÍTICA DE HEADERS ---
-# Por favor, descomenta y usa la opción que te funcionó en tus pruebas iniciales.
+# Por favor, DESCOMENTA Y USA SOLO la opción que te funcionó en tus pruebas iniciales
+# para obtener las ligas.
 #
 # Opción 1: Para claves API obtenidas directamente de api-sports.io
 HEADERS = {
@@ -32,14 +33,14 @@ def fetch_data(endpoint, params=None):
     """
     url = f"{BASE_URL}{endpoint}"
 
-    # --- MENSAJES DE DEPURACIÓN ---
+    # --- MENSAJES DE DEPURACIÓN EN LA BARRA LATERAL ---
     st.sidebar.markdown("---")
     st.sidebar.subheader("Mensajes de Depuración (DEBUG)")
     st.sidebar.write(f"**URL de la Petición:** `{url}`")
     st.sidebar.write(f"**Parámetros Enviados:** `{params}`")
     st.sidebar.write(f"**Headers Enviados:** `{HEADERS}`")
     st.sidebar.markdown("---")
-    # ---------------------------
+    # --------------------------------------------------
 
     try:
         response = requests.get(url, headers=HEADERS, params=params)
@@ -80,7 +81,7 @@ def get_fixtures(league_id, season, status="FT", date_from=None, date_to=None):
     if date_to:
         params["to"] = date_to.strftime("%Y-%m-%d")
 
-    # Asegúrate de que los parámetros no vacíos se pasen correctamente
+    # Filtra los parámetros para asegurar que no se envíen valores None a la API si no se seleccionaron
     filtered_params = {k: v for k, v in params.items() if v is not None}
 
     data = fetch_data("fixtures", filtered_params) # Usar filtered_params aquí
@@ -138,6 +139,7 @@ Selecciona una liga y una temporada para obtener los partidos finalizados.
 # 1. Selector de Liga
 leagues_list = get_leagues() # Obtener las ligas una vez para el selector
 league_options = {"Selecciona una liga": None} # Opción por defecto
+# Añadir las ligas obtenidas a las opciones del selectbox
 league_options.update({l['league']['name']: l['league']['id'] for l in leagues_list})
 
 selected_league_name = st.selectbox(
@@ -152,10 +154,9 @@ selected_league_id = league_options.get(selected_league_name)
 # Asegúrate de seleccionar una temporada que ya haya terminado para ver partidos "FT".
 current_year = datetime.now().year
 # Genera años desde el año anterior al actual hasta un año histórico (ej. 2009)
-# La 2024/2025 terminó en Mayo/Junio de 2025, así que 2024 es una temporada válida para FT.
-years = list(range(current_year - 1, 2009, -1)) # Ejemplo: si es 2025, empieza en 2024, 2023, ...
-years.insert(0, current_year) # Agrega el año actual también, por si alguna liga ya inició
-years.insert(0, "Selecciona una temporada")
+# La temporada 2024 (2024/2025) debería haber terminado en Mayo/Junio de 2025.
+years = list(range(current_year, 2009, -1)) # Desde el año actual hasta 2009
+years.insert(0, "Selecciona una temporada") # Opción por defecto al inicio
 
 selected_season = st.selectbox(
     "Selecciona una Temporada:",
@@ -175,10 +176,9 @@ with col2:
 
 
 if st.button("Buscar Partidos", key="search_fixtures"):
-    if selected_league_id and selected_season != "Selecciona una temporada":
+    if selected_league_id is not None and selected_season != "Selecciona una temporada":
         with st.spinner(f"Buscando partidos para {selected_league_name} ({selected_season})..."):
             # Llama a la función get_fixtures con el estado "FT" para partidos finalizados
-            # Los parámetros date_from y date_to se pasarán como None si no están seleccionados.
             fixtures = get_fixtures(selected_league_id, int(selected_season), "FT", date_from, date_to)
 
             if fixtures:
@@ -211,7 +211,7 @@ if st.button("Buscar Partidos", key="search_fixtures"):
                 st.success(f"Se encontraron {len(fixtures)} partidos.")
             else:
                 st.warning(f"No se encontraron partidos finalizados para {selected_league_name} en la temporada {selected_season} con los filtros seleccionados.")
-                st.info("Asegúrate de que la temporada haya concluido y/o que tus filtros de fecha sean correctos.")
+                st.info("Asegúrate de que la temporada haya concluido y/o que tus filtros de fecha sean correctos. Revisa los mensajes de depuración.")
     else:
         st.error("Por favor, selecciona una liga y una temporada válidas.")
 
