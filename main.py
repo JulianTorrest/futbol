@@ -7,15 +7,20 @@ from datetime import datetime, timedelta
 API_KEY = "dc98474508c65500e4a8776d96a76a5e"
 BASE_URL = "https://v3.football.api-sports.io/"
 
-# Puedes ajustar los headers según lo que te haya funcionado (x-apisports-key o x-rapidapi-key)
-# Prefiero 'x-apisports-key' para acceso directo, pero si usaste RapidAPI, 'x-rapidapi-key' es el indicado.
-# Si el código anterior con x-rapidapi-key te funcionó, usa esos headers.
+# --- CONFIGURACIÓN CRÍTICA DE HEADERS ---
+# Por favor, descomenta y usa la opción que te funcionó en tus pruebas iniciales.
+#
+# Opción 1: Para claves API obtenidas directamente de api-sports.io
 HEADERS = {
     'x-apisports-key': API_KEY,
-    # Si 'x-rapidapi-key' y 'x-rapidapi-host' te funcionaron, usa estos en su lugar:
-    # 'x-rapidapi-key': API_KEY,
-    # 'x-rapidapi-host': "v3.football.api-sports.io"
 }
+
+# Opción 2: Para claves API obtenidas a través de RapidAPI Hub
+# Si usaste esta, COMENTA la Opción 1 de arriba y DESCOMENTA esta de abajo:
+# HEADERS = {
+#   'x-rapidapi-key': API_KEY,
+#   'x-rapidapi-host': "v3.football.api-sports.io"
+# }
 
 # --- Funciones para la interacción con la API ---
 
@@ -23,8 +28,19 @@ HEADERS = {
 def fetch_data(endpoint, params=None):
     """
     Función genérica para hacer llamadas a la API de Football.
+    Incluye mensajes de depuración para ver la URL y los parámetros enviados.
     """
     url = f"{BASE_URL}{endpoint}"
+
+    # --- MENSAJES DE DEPURACIÓN ---
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Mensajes de Depuración (DEBUG)")
+    st.sidebar.write(f"**URL de la Petición:** `{url}`")
+    st.sidebar.write(f"**Parámetros Enviados:** `{params}`")
+    st.sidebar.write(f"**Headers Enviados:** `{HEADERS}`")
+    st.sidebar.markdown("---")
+    # ---------------------------
+
     try:
         response = requests.get(url, headers=HEADERS, params=params)
         response.raise_for_status()  # Lanza una excepción para errores HTTP (4xx o 5xx)
@@ -64,7 +80,10 @@ def get_fixtures(league_id, season, status="FT", date_from=None, date_to=None):
     if date_to:
         params["to"] = date_to.strftime("%Y-%m-%d")
 
-    data = fetch_data("fixtures", params)
+    # Asegúrate de que los parámetros no vacíos se pasen correctamente
+    filtered_params = {k: v for k, v in params.items() if v is not None}
+
+    data = fetch_data("fixtures", filtered_params) # Usar filtered_params aquí
     if data and data['response']:
         return data['response']
     return []
@@ -88,7 +107,7 @@ utilizando la API de API-Sports.
 st.header("🔍 Ligas Disponibles")
 st.write("Aquí puedes ver una lista de las ligas a las que puedes acceder.")
 
-if st.button("Cargar Ligas"):
+if st.button("Cargar Ligas", key="load_leagues"):
     with st.spinner("Cargando ligas..."):
         leagues = get_leagues()
         if leagues:
@@ -111,40 +130,56 @@ st.markdown("---")
 
 # --- Sección: Búsqueda de Partidos Históricos ---
 st.header("🗓️ Buscar Partidos Históricos")
-st.write("Selecciona una liga y una temporada para obtener los partidos finalizados.")
+st.write("""
+Selecciona una liga y una temporada para obtener los partidos finalizados.
+**Importante:** Para datos históricos, selecciona temporadas pasadas (ej. 2023 para la temporada 2023/2024).
+""")
 
 # 1. Selector de Liga
-leagues = get_leagues() # Obtener las ligas una vez para el selector
-league_options = {l['league']['name']: l['league']['id'] for l in leagues}
+leagues_list = get_leagues() # Obtener las ligas una vez para el selector
+league_options = {"Selecciona una liga": None} # Opción por defecto
+league_options.update({l['league']['name']: l['league']['id'] for l in leagues_list})
 
 selected_league_name = st.selectbox(
     "Selecciona una Liga:",
-    options=list(league_options.keys())
+    options=list(league_options.keys()),
+    index=0 # Pone la opción "Selecciona una liga" como predeterminada
 )
 selected_league_id = league_options.get(selected_league_name)
 
 # 2. Selector de Temporada
 # La API suele usar el año de inicio de la temporada (ej. 2023 para 2023/2024)
+# Asegúrate de seleccionar una temporada que ya haya terminado para ver partidos "FT".
 current_year = datetime.now().year
-years = list(range(current_year, 2009, -1)) # Desde el año actual hasta 2009, o el que la API soporte
+# Genera años desde el año anterior al actual hasta un año histórico (ej. 2009)
+# La 2024/2025 terminó en Mayo/Junio de 2025, así que 2024 es una temporada válida para FT.
+years = list(range(current_year - 1, 2009, -1)) # Ejemplo: si es 2025, empieza en 2024, 2023, ...
+years.insert(0, current_year) # Agrega el año actual también, por si alguna liga ya inició
+years.insert(0, "Selecciona una temporada")
+
 selected_season = st.selectbox(
     "Selecciona una Temporada:",
-    options=years
+    options=years,
+    index=0 # Pone la opción por defecto
 )
 
 # 3. Rango de Fechas (Opcional, para refinar la búsqueda si la temporada es muy grande)
 st.subheader("Filtrar por Rango de Fechas (Opcional)")
+st.write("Si dejas estos campos vacíos, se buscarán todos los partidos de la temporada seleccionada.")
 col1, col2 = st.columns(2)
 with col1:
+    # `value=None` asegura que por defecto no haya fecha seleccionada
     date_from = st.date_input("Fecha de Inicio:", value=None, min_value=datetime(1990, 1, 1), max_value=datetime.now() + timedelta(days=365))
 with col2:
     date_to = st.date_input("Fecha Fin:", value=None, min_value=datetime(1990, 1, 1), max_value=datetime.now() + timedelta(days=365))
 
 
-if st.button("Buscar Partidos"):
-    if selected_league_id and selected_season:
+if st.button("Buscar Partidos", key="search_fixtures"):
+    if selected_league_id and selected_season != "Selecciona una temporada":
         with st.spinner(f"Buscando partidos para {selected_league_name} ({selected_season})..."):
-            fixtures = get_fixtures(selected_league_id, selected_season, "FT", date_from, date_to) # Solo partidos Finalizados (FT)
+            # Llama a la función get_fixtures con el estado "FT" para partidos finalizados
+            # Los parámetros date_from y date_to se pasarán como None si no están seleccionados.
+            fixtures = get_fixtures(selected_league_id, int(selected_season), "FT", date_from, date_to)
 
             if fixtures:
                 st.subheader(f"Partidos Finalizados de {selected_league_name} - Temporada {selected_season}")
@@ -156,6 +191,7 @@ if st.button("Buscar Partidos"):
                         "ID Partido": f['fixture']['id'],
                         "Fecha": pd.to_datetime(f['fixture']['date']).strftime("%Y-%m-%d %H:%M"),
                         "Estadio": f['fixture']['venue']['name'],
+                        "Ciudad": f['fixture']['venue']['city'],
                         "Equipo Local": f['teams']['home']['name'],
                         "Goles Local": f['goals']['home'],
                         "Goles Visitante": f['goals']['away'],
@@ -165,13 +201,19 @@ if st.button("Buscar Partidos"):
                         "Ronda": f['league']['round']
                     })
                 fixtures_df = pd.DataFrame(fixture_data)
+
+                # Ordenar por fecha para una mejor visualización
+                fixtures_df['Fecha'] = pd.to_datetime(fixtures_df['Fecha'])
+                fixtures_df = fixtures_df.sort_values(by='Fecha', ascending=False)
+
                 st.dataframe(fixtures_df, use_container_width=True, hide_index=True)
 
                 st.success(f"Se encontraron {len(fixtures)} partidos.")
             else:
                 st.warning(f"No se encontraron partidos finalizados para {selected_league_name} en la temporada {selected_season} con los filtros seleccionados.")
+                st.info("Asegúrate de que la temporada haya concluido y/o que tus filtros de fecha sean correctos.")
     else:
-        st.error("Por favor, selecciona una liga y una temporada.")
+        st.error("Por favor, selecciona una liga y una temporada válidas.")
 
 st.markdown("---")
 st.info("💡 **Consejo:** Los datos de la API pueden tener límites de tasa. El caché ayuda a reducir las llamadas repetidas.")
