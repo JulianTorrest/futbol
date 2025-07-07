@@ -177,6 +177,10 @@ with col2:
 
 if st.button("Buscar Partidos", key="search_fixtures"):
     if selected_league_id is not None and selected_season != "Selecciona una temporada":
+        # --- LÍNEA DE DEPURACIÓN CRÍTICA PARA EL ID DE LA LIGA SELECCIONADO ---
+        st.sidebar.write(f"DEBUG: ID de liga seleccionado: `{selected_league_id}`")
+        # ---------------------------------------------------------------------
+
         with st.spinner(f"Buscando partidos para {selected_league_name} ({selected_season})..."):
             # Llama a la función get_fixtures con el estado "FT" para partidos finalizados
             fixtures = get_fixtures(selected_league_id, int(selected_season), "FT", date_from, date_to)
